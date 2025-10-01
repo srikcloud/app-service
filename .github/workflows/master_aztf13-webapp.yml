@@ -1,39 +1,40 @@
-# Docs for the Azure Web Apps Deploy action: https://go.microsoft.com/fwlink/?linkid=2134798
-# More GitHub Actions for Azure: https://go.microsoft.com/fwlink/?linkid=2135048
-
-name: Azure App Service - aztf13-webapp(Production), Build and deploy DotnetCore app
+name: Azure App Service - aztf13-webapp, Build and deploy
 
 on:
   push:
-    branches:
-      - master
+    branches: [ master ]         # change to 'main' if needed
+    paths:
+      - 'appServiceSlot/**'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-aztf13
+  cancel-in-progress: true
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-
     steps:
-    # checkout the repo
-    - name: 'Checkout Github Action'
-      uses: actions/checkout@master
+      - name: Checkout
+        uses: actions/checkout@v4
 
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
 
-    - name: Set up .NET Core
-      uses: actions/setup-dotnet@v1
-      with:
-        dotnet-version: '8.0'
+      - name: Restore (solution)
+        run: dotnet restore appServiceSlot/SlotDemo.sln
 
-    - name: Build with dotnet
-      run: dotnet build --configuration Release
+      - name: Build (solution)
+        run: dotnet build appServiceSlot/SlotDemo.sln --configuration Release --no-restore
 
-    - name: dotnet publish
-      run: dotnet publish -c Release -o ${{env.DOTNET_ROOT}}/myapp
+      - name: Publish (project)
+        run: dotnet publish appServiceSlot/SlotDemo/SlotDemo.csproj --configuration Release --output appServiceSlot/publish --no-build
 
-    - name: Run Azure webapp deploy action using publish profile credentials
-      uses: azure/webapps-deploy@v2
-      with:
-        app-name: aztf13-webapp
-        slot-name: Production
-        publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_DB9866B06A88432DB4E579D2B3156D82 }}
-        package: ${{env.DOTNET_ROOT}}/myapp
-
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: aztf13-webapp
+          package: appServiceSlot/publish
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_6447B1ABDC7B44C898B01D65369B7F8D }}
